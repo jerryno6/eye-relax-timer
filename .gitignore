@@ -1,5 +1,52 @@
+# Dependencies
 node_modules/
+
+# Frontend / Vite build output
 dist/
+dist-ssr/
+.vite/
+*.tsbuildinfo
+
+# Rust / Tauri build output
 src-tauri/target/
-.DS_Store
+
+# Logs
+logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+desktop.ini
+
+# Editor local state
+*.swp
+*.swo
+*~
+.vscode/.history/
+.vscode/*.log
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/usage.statistics.xml
+.idea/**/shelf/
+
+# Temporary and cache artifacts
+.cache/
+.tmp/
+tmp/
+temp/
+coverage/
+.eslintcache
+*.tmp
+*.temp
