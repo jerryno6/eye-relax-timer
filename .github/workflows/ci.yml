@@ -39,6 +39,5 @@ jobs:
       - name: Cargo check + test
         run: |
           cargo check --manifest-path src-tauri/Cargo.toml
-        working-directory: src-tauri
       - name: Cargo test
         run: cargo test --manifest-path src-tauri/Cargo.toml
