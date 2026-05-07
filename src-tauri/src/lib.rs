@@ -9,6 +9,7 @@ use std::{
     time::Duration,
 };
 use tauri::{
+    image::Image,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, RunEvent, State, WebviewUrl,
@@ -235,10 +236,13 @@ fn create_tray(app: &AppHandle, state: Arc<SharedState>) -> tauri::Result<()> {
     });
 
     let menu_state = state.clone();
+    let tray_icon = Image::from_bytes(include_bytes!("../icons/icon.png"))?;
     TrayIconBuilder::with_id("main-tray")
+        .icon(tray_icon)
+        .icon_as_template(false)
         .tooltip("Eye Relax Timer")
         .menu(&menu)
-        .show_menu_on_left_click(true)
+        .show_menu_on_left_click(false)
         .on_menu_event(move |app, event| {
             let app_handle = app.clone();
             let state = menu_state.clone();
