@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   tag:
@@ -35,8 +36,17 @@ jobs:
 
       - name: Create and push tag
         if: steps.check.outputs.exists == 'false'
+        id: create-tag
         run: |
           git tag "v${{ steps.version.outputs.v }}"
           git push origin "v${{ steps.version.outputs.v }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Trigger release build
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          gh workflow run release.yml \
+            -f release_tag="v${{ steps.version.outputs.v }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
