@@ -5,6 +5,8 @@ description = "A tray-first eye relaxation timer."
 authors = ["Vu"]
 edition = "2021"
 
+[package.metadata.tauri-winres]
+
 [lib]
 name = "eye_relax_timer_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
