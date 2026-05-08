@@ -579,10 +579,25 @@ fn validate_settings(settings: &AppSettings) -> Result<(), String> {
 fn apply_autostart(app: &AppHandle, enabled: bool) -> Result<(), String> {
     let autostart = app.autolaunch();
     if enabled {
-        autostart.enable().map_err(error_to_string)
+        autostart.enable().map_err(error_to_string)?;
     } else {
-        autostart.disable().map_err(error_to_string)
+        if let Err(err) = autostart.disable() {
+            if !is_missing_autostart_entry_error(&err) {
+                return Err(error_to_string(err));
+            }
+        }
     }
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn is_missing_autostart_entry_error(error: &impl std::fmt::Display) -> bool {
+    error.to_string().contains("os error 2")
+}
+
+#[cfg(not(target_os = "windows"))]
+fn is_missing_autostart_entry_error(_error: &impl std::fmt::Display) -> bool {
+    false
 }
 
 fn duration_seconds(settings: &AppSettings) -> u64 {
