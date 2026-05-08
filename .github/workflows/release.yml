@@ -26,14 +26,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: macOS arm64
+          - name: macOS Universal
             runner: macos-latest
-            rust_target: aarch64-apple-darwin
-            tauri_args: --target aarch64-apple-darwin
-          - name: macOS x64
-            runner: macos-13
-            rust_target: x86_64-apple-darwin
-            tauri_args: --target x86_64-apple-darwin
+            rust_target: aarch64-apple-darwin, x86_64-apple-darwin
+            tauri_args: --target universal-apple-darwin
           - name: Windows x64
             runner: windows-latest
             rust_target: x86_64-pc-windows-msvc
