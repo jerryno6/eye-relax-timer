@@ -91,7 +91,7 @@ There is no frontend test script configured currently. Use `npm run build` to ty
 ### CI/CD Pipeline
 
 | Event | Workflow | What happens |
-|---|---|---|
+| --- | --- | --- |
 | PR opened to `develop` | `ci.yml` | Build + typecheck frontend, cargo check + test |
 | PR merged to `main` | `tag.yml` | Reads version from `package.json`, creates and pushes tag `v{x.y.z}` |
 | Tag `v*` pushed | `release.yml` | Builds artifacts for macOS (ARM/x64) and Windows, creates GitHub Release |
@@ -113,4 +113,3 @@ Merge PR to main → tag.yml creates tag v0.2.0
      ▼
 Tag push triggers release.yml → builds artifacts → GitHub Release
 ```
-

@@ -71,7 +71,7 @@ struct TrayMenuHandles {
     status: MenuItem<Wry>,
     start: MenuItem<Wry>,
     pause: MenuItem<Wry>,
-    reset: MenuItem<Wry>,
+    stop: MenuItem<Wry>,
 }
 
 struct SharedState {
@@ -145,8 +145,8 @@ fn pause_timer(app: AppHandle, state: State<'_, Arc<SharedState>>) -> Result<(),
 }
 
 #[tauri::command]
-fn reset_timer(app: AppHandle, state: State<'_, Arc<SharedState>>) -> Result<(), String> {
-    reset_timer_inner(&app, state.inner().clone())
+fn stop_timer(app: AppHandle, state: State<'_, Arc<SharedState>>) -> Result<(), String> {
+    stop_timer_inner(&app, state.inner().clone())
 }
 
 #[tauri::command]
@@ -172,7 +172,7 @@ pub fn run() {
             get_timer_state,
             start_timer,
             pause_timer,
-            reset_timer,
+            stop_timer,
             close_break_popup
         ])
         .setup(move |app| {
@@ -205,7 +205,7 @@ fn create_tray(app: &AppHandle, state: Arc<SharedState>) -> tauri::Result<()> {
     let status = MenuItem::with_id(app, "status", "Status: Ready", false, None::<&str>)?;
     let start = MenuItem::with_id(app, "start", "Start", true, None::<&str>)?;
     let pause = MenuItem::with_id(app, "pause", "Pause", false, None::<&str>)?;
-    let reset = MenuItem::with_id(app, "reset", "Reset", true, None::<&str>)?;
+    let stop = MenuItem::with_id(app, "stop", "Stop", true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let separator_one = PredefinedMenuItem::separator(app)?;
@@ -218,7 +218,7 @@ fn create_tray(app: &AppHandle, state: Arc<SharedState>) -> tauri::Result<()> {
             &separator_one,
             &start,
             &pause,
-            &reset,
+            &stop,
             &settings,
             &separator_two,
             &quit,
@@ -232,7 +232,7 @@ fn create_tray(app: &AppHandle, state: Arc<SharedState>) -> tauri::Result<()> {
         status,
         start,
         pause,
-        reset,
+        stop,
     });
 
     let menu_state = state.clone();
@@ -254,7 +254,7 @@ fn create_tray(app: &AppHandle, state: Arc<SharedState>) -> tauri::Result<()> {
                     let _ = toggle_pause_timer(&app_handle, state);
                 }
                 "reset" => {
-                    let _ = reset_timer_inner(&app_handle, state);
+                    let _ = stop_timer_inner(&app_handle, state);
                 }
                 "settings" => {
                     let _ = open_settings_window(&app_handle);
@@ -364,6 +364,10 @@ fn start_timer_inner(
     state: Arc<SharedState>,
     override_remaining: Option<u64>,
 ) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("break") {
+        let _ = window.close();
+    }
+
     let settings = state.settings.lock().map_err(lock_error)?.clone();
     let remaining = override_remaining.unwrap_or_else(|| duration_seconds(&settings));
     if remaining == 0 {
@@ -412,7 +416,7 @@ async fn run_countdown(
     }
 
     if show_break_window(&app).is_err() {
-        let _ = reset_timer_inner(&app, state);
+        let _ = stop_timer_inner(&app, state);
         return;
     }
 
@@ -464,7 +468,7 @@ fn toggle_pause_timer(app: &AppHandle, state: Arc<SharedState>) -> Result<(), St
     }
 }
 
-fn reset_timer_inner(app: &AppHandle, state: Arc<SharedState>) -> Result<(), String> {
+fn stop_timer_inner(app: &AppHandle, state: Arc<SharedState>) -> Result<(), String> {
     state.next_generation();
     if let Some(window) = app.get_webview_window("break") {
         let _ = window.close();
@@ -517,10 +521,7 @@ fn update_tray_menu(state: &Arc<SharedState>) -> Result<(), String> {
 
     menu.status.set_text(status).map_err(error_to_string)?;
     menu.start
-        .set_enabled(matches!(
-            snapshot.status,
-            TimerStatus::Stopped | TimerStatus::Paused
-        ))
+        .set_enabled(true)
         .map_err(error_to_string)?;
     menu.pause
         .set_text(if snapshot.status == TimerStatus::Paused {
@@ -535,7 +536,7 @@ fn update_tray_menu(state: &Arc<SharedState>) -> Result<(), String> {
             TimerStatus::Running | TimerStatus::Paused
         ))
         .map_err(error_to_string)?;
-    menu.reset
+    menu.stop
         .set_enabled(snapshot.status != TimerStatus::Stopped)
         .map_err(error_to_string)?;
 
