@@ -23,6 +23,11 @@ Eye Relax Timer is a tray-first desktop app that helps you rest your eyes on a r
 - Optional autostart at login.
 - Settings persistence in the app config directory.
 
+## Plan
+
+- [ ] Display version on the Title of the UI.
+- [ ] Auto Update
+
 ## Development
 
 [← Back to main README-DEVELOPMENT](README-DEVELOPMENT.md)

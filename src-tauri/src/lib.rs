@@ -1,3 +1,6 @@
+#![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::missing_panics_doc)]
+
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
@@ -10,7 +13,7 @@ use std::{
 };
 use tauri::{
     image::Image,
-    menu::{Menu, MenuItem, PredefinedMenuItem},
+    menu::{IconMenuItem, Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, RunEvent, State, WebviewUrl,
     WebviewWindowBuilder, WindowEvent, Wry,
@@ -69,9 +72,9 @@ impl TimerSnapshot {
 
 struct TrayMenuHandles {
     status: MenuItem<Wry>,
-    start: MenuItem<Wry>,
-    pause: MenuItem<Wry>,
-    stop: MenuItem<Wry>,
+    start: IconMenuItem<Wry>,
+    pause: IconMenuItem<Wry>,
+    stop: IconMenuItem<Wry>,
 }
 
 struct SharedState {
@@ -203,10 +206,14 @@ pub fn run() {
 
 fn create_tray(app: &AppHandle, state: Arc<SharedState>) -> tauri::Result<()> {
     let status = MenuItem::with_id(app, "status", "Status: Ready", false, None::<&str>)?;
-    let start = MenuItem::with_id(app, "start", "Start", true, None::<&str>)?;
-    let pause = MenuItem::with_id(app, "pause", "Pause", false, None::<&str>)?;
-    let stop = MenuItem::with_id(app, "stop", "Stop", true, None::<&str>)?;
-    let settings = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
+    let start_icon = Image::from_bytes(include_bytes!("../icons/menu-start.png"))?;
+    let start = IconMenuItem::with_id(app, "start", "Start", true, Some(start_icon), None::<&str>)?;
+    let pause_icon = Image::from_bytes(include_bytes!("../icons/menu-pause.png"))?;
+    let pause = IconMenuItem::with_id(app, "pause", "Pause", false, Some(pause_icon), None::<&str>)?;
+    let stop_icon = Image::from_bytes(include_bytes!("../icons/menu-stop.png"))?;
+    let stop = IconMenuItem::with_id(app, "stop", "Stop", true, Some(stop_icon), None::<&str>)?;
+    let settings_icon = Image::from_bytes(include_bytes!("../icons/menu-settings.png"))?;
+    let settings = IconMenuItem::with_id(app, "settings", "Settings", true, Some(settings_icon), None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let separator_one = PredefinedMenuItem::separator(app)?;
     let separator_two = PredefinedMenuItem::separator(app)?;
@@ -253,7 +260,7 @@ fn create_tray(app: &AppHandle, state: Arc<SharedState>) -> tauri::Result<()> {
                 "pause" => {
                     let _ = toggle_pause_timer(&app_handle, state);
                 }
-                "reset" => {
+                "stop" => {
                     let _ = stop_timer_inner(&app_handle, state);
                 }
                 "settings" => {
@@ -273,7 +280,7 @@ fn create_tray(app: &AppHandle, state: Arc<SharedState>) -> tauri::Result<()> {
                 ..
             } = event
             {
-                let _ = open_settings_window(&tray.app_handle());
+                let _ = open_settings_window(tray.app_handle());
             }
         })
         .build(app)?;
@@ -349,12 +356,12 @@ fn break_window_geometry(
     let physical_size = monitor.size();
     let physical_position = monitor.position();
 
-    let monitor_width = physical_size.width as f64 / scale;
-    let monitor_height = physical_size.height as f64 / scale;
+    let monitor_width = f64::from(physical_size.width) / scale;
+    let monitor_height = f64::from(physical_size.height) / scale;
     let width = monitor_width * 0.8;
     let height = monitor_height * 0.8;
-    let x = physical_position.x as f64 / scale + (monitor_width - width) / 2.0;
-    let y = physical_position.y as f64 / scale + (monitor_height - height) / 2.0;
+    let x = f64::from(physical_position.x) / scale + (monitor_width - width) / 2.0;
+    let y = f64::from(physical_position.y) / scale + (monitor_height - height) / 2.0;
 
     Ok((LogicalSize::new(width, height), LogicalPosition::new(x, y)))
 }
@@ -581,11 +588,9 @@ fn apply_autostart(app: &AppHandle, enabled: bool) -> Result<(), String> {
     let autostart = app.autolaunch();
     if enabled {
         autostart.enable().map_err(error_to_string)?;
-    } else {
-        if let Err(err) = autostart.disable() {
-            if !is_missing_autostart_entry_error(&err) {
-                return Err(error_to_string(err));
-            }
+    } else if let Err(err) = autostart.disable() {
+        if !is_missing_autostart_entry_error(&err) {
+            return Err(error_to_string(err));
         }
     }
     Ok(())
