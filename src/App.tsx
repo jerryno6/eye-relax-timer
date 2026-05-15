@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { Pause, Play, RotateCcw, Save, X } from "lucide-react";
+import { Pause, Play, Square, Save, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 type TimerStatus = "stopped" | "running" | "paused" | "breakVisible";
@@ -109,7 +109,7 @@ function SettingsWindow() {
     }
   }
 
-  async function invokeTimer(command: "start_timer" | "pause_timer" | "reset_timer") {
+  async function invokeTimer(command: "start_timer" | "pause_timer" | "stop_timer") {
     setError(null);
     try {
       if (command === "start_timer") {
@@ -150,10 +150,10 @@ function SettingsWindow() {
           <button
             className="icon-button"
             disabled={timer.status === "stopped"}
-            onClick={() => invokeTimer("reset_timer")}
+            onClick={() => invokeTimer("stop_timer")}
           >
-            <RotateCcw size={18} />
-            <span>Reset</span>
+            <Square size={18} />
+            <span>Stop</span>
           </button>
         </div>
       </section>
