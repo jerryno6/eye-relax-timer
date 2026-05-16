@@ -203,6 +203,35 @@ button:disabled {
   accent-color: #196b69;
 }
 
+.update-check-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.update-status {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.update-status--ok {
+  color: #196b69;
+}
+
+.update-status--outdated {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  color: #a16207;
+  text-decoration: underline;
+}
+
+.update-status--error {
+  color: #b42318;
+}
+
 .footer-row {
   justify-content: space-between;
   margin-top: auto;

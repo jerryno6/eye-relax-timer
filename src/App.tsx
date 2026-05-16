@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { Pause, Play, Square, Save, X } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { Pause, Play, Square, Save, X, RefreshCcw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 type TimerStatus = "stopped" | "running" | "paused" | "breakVisible";
@@ -45,6 +46,11 @@ function SettingsWindow() {
   const [customMinutes, setCustomMinutes] = useState(String(DEFAULT_SETTINGS.durationMinutes));
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [updateState, setUpdateState] = useState<{
+    status: "idle" | "checking" | "uptodate" | "outdated" | "error";
+    message?: string;
+    releaseUrl?: string;
+  }>({ status: "idle" });
 
   useEffect(() => {
     void loadInitialState();
@@ -118,6 +124,25 @@ function SettingsWindow() {
       await invoke(command);
     } catch (cause) {
       setError(String(cause));
+    }
+  }
+
+  async function handleCheckUpdates() {
+    setUpdateState({ status: "checking" });
+    try {
+      const r = await invoke<{
+        current: string;
+        latest: string;
+        isOutdated: boolean;
+        releaseUrl: string;
+      }>("check_for_updates");
+      if (r.isOutdated) {
+        setUpdateState({ status: "outdated", message: `v${r.latest} available`, releaseUrl: r.releaseUrl });
+      } else {
+        setUpdateState({ status: "uptodate", message: `Up to date (v${r.current})` });
+      }
+    } catch (e) {
+      setUpdateState({ status: "error", message: String(e) });
     }
   }
 
@@ -214,6 +239,32 @@ function SettingsWindow() {
             }
           />
         </label>
+        <div className="toggle-row">
+          <div className="update-check-group">
+            <button
+              className="icon-button"
+              onClick={handleCheckUpdates}
+              disabled={updateState.status === "checking"}
+            >
+              <RefreshCcw size={18} />
+              <span>Check for updates</span>
+            </button>
+            {updateState.status === "outdated" && updateState.releaseUrl ? (
+              <button
+                className="update-status update-status--outdated"
+                onClick={() => void openUrl(updateState.releaseUrl!)}
+              >
+                {updateState.message}
+              </button>
+            ) : updateState.message ? (
+              <span
+                className={`update-status update-status--${updateState.status === "uptodate" ? "ok" : "error"}`}
+              >
+                {updateState.message}
+              </span>
+            ) : null}
+          </div>
+        </div>
       </section>
 
       <footer className="footer-row">

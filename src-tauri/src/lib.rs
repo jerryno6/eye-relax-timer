@@ -157,6 +157,56 @@ fn close_break_popup(app: AppHandle, state: State<'_, Arc<SharedState>>) -> Resu
     finish_break(&app, state.inner().clone())
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateCheck {
+    current: String,
+    latest: String,
+    is_outdated: bool,
+    release_url: String,
+}
+
+const GITHUB_RELEASES_LATEST: &str =
+    "https://api.github.com/repos/jerryno6/eye-relax-timer/releases/latest";
+
+#[tauri::command]
+async fn check_for_updates() -> Result<UpdateCheck, String> {
+    let current_raw = env!("CARGO_PKG_VERSION");
+    let user_agent = format!("EyeRelaxTimer/{current_raw}");
+
+    let resp = reqwest::Client::builder()
+        .user_agent(user_agent)
+        .build()
+        .map_err(|e| e.to_string())?
+        .get(GITHUB_RELEASES_LATEST)
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        return Err(format!("GitHub API returned {}", resp.status()));
+    }
+
+    #[derive(serde::Deserialize)]
+    struct ReleaseInfo {
+        tag_name: String,
+        html_url: String,
+    }
+    let info: ReleaseInfo = resp.json().await.map_err(|e| e.to_string())?;
+
+    let latest_raw = info.tag_name.trim_start_matches('v').to_string();
+    let current = semver::Version::parse(current_raw).map_err(|e| e.to_string())?;
+    let latest = semver::Version::parse(&latest_raw).map_err(|e| e.to_string())?;
+
+    Ok(UpdateCheck {
+        current: current_raw.to_string(),
+        latest: latest_raw,
+        is_outdated: latest > current,
+        release_url: info.html_url,
+    })
+}
+
 pub fn run() {
     let context = tauri::generate_context!();
     let settings = AppSettings::default();
@@ -168,6 +218,7 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
+        .plugin(tauri_plugin_opener::init())
         .manage(shared.clone())
         .invoke_handler(tauri::generate_handler![
             get_settings,
@@ -176,7 +227,8 @@ pub fn run() {
             start_timer,
             pause_timer,
             stop_timer,
-            close_break_popup
+            close_break_popup,
+            check_for_updates
         ])
         .setup(move |app| {
             let app_handle = app.handle().clone();
@@ -300,7 +352,7 @@ fn open_settings_window(app: &AppHandle) -> Result<(), String> {
         "settings",
         WebviewUrl::App("index.html?window=settings".into()),
     )
-    .title("Eye Relax Timer")
+    .title(format!("Eye Relax Timer v{}", env!("CARGO_PKG_VERSION")))
     .inner_size(420.0, 560.0)
     .min_inner_size(360.0, 480.0)
     .resizable(false)
@@ -708,5 +760,15 @@ mod tests {
         assert!(!autostart_update_needed(true, true));
         assert!(autostart_update_needed(false, true));
         assert!(autostart_update_needed(true, false));
+    }
+
+    #[test]
+    fn semver_compare_detects_outdated_and_current() {
+        let current = semver::Version::parse("0.1.6").unwrap();
+        let newer = semver::Version::parse("0.1.7").unwrap();
+        let same = semver::Version::parse("0.1.6").unwrap();
+
+        assert!(newer > current, "0.1.7 should be newer than 0.1.6");
+        assert!(!(same > current), "0.1.6 should not be newer than 0.1.6");
     }
 }
