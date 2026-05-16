@@ -50,3 +50,9 @@ coverage/
 .eslintcache
 *.tmp
 *.temp
+
+# Alternate package-manager lockfiles — local-only; CI must use package-lock.json
+pnpm-lock.yaml
+bun.lockb
+bun.lock
+yarn.lock

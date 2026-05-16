@@ -22,7 +22,7 @@
 
 ### Prerequisites
 
-- Node.js and npm.
+- Node.js with npm (required for CI parity). **bun** is optional for faster local installs.
 - Rust and Cargo.
 - Tauri platform prerequisites for your operating system.
 
@@ -31,6 +31,14 @@
 ```bash
 npm install
 ```
+
+Optional faster local install with bun:
+
+```bash
+bun install
+```
+
+CI and `release.yml` use `npm ci` against `package-lock.json`. Alternate lockfiles (`bun.lockb`, `pnpm-lock.yaml`, `yarn.lock`) are gitignored — only commit `package-lock.json`.
 
 ### Run the Frontend Only
 
@@ -95,6 +103,8 @@ There is no frontend test script configured currently. Use `npm run build` to ty
 | PR opened to `develop` | `ci.yml` | Build + typecheck frontend, cargo check + test |
 | PR merged to `main` | `tag.yml` | Reads version from `package.json`, creates and pushes tag `v{x.y.z}` |
 | Tag `v*` pushed | `release.yml` | Builds artifacts for macOS (ARM/x64) and Windows, creates GitHub Release |
+
+All three workflows install with `npm ci`. `tauri-action` auto-detects the package manager from lockfiles, so the repo must only ever commit `package-lock.json` — any stray `pnpm-lock.yaml` or `bun.lockb` will silently switch the release build off npm.
 
 ### Full release flow
 

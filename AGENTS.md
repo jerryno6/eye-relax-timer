@@ -21,6 +21,7 @@ Eye Relax Timer is a tray-first desktop app built with Tauri v2. Its goal is to 
 ## Main file structure
 
 - `package.json`: npm scripts, React/Tauri/lucide dependencies.
+- `package-lock.json`: canonical lockfile, must be committed; CI uses `npm ci` against it.
 - `vite.config.ts`: Vite configuration for Tauri, strict dev port, platform-specific build target.
 - `index.html`: HTML shell for the frontend.
 - `src/main.tsx`: mounts the React app.
@@ -40,6 +41,12 @@ First run:
 
 ```bash
 npm install
+```
+
+Optional faster local install (developers only, not used by CI):
+
+```bash
+bun install
 ```
 
 Run the Vite frontend separately:
@@ -90,3 +97,4 @@ There is currently no frontend test script in `package.json`. When verifying Typ
 - The Tauri app declares `windows: []` in config and creates windows at runtime in Rust. If adding a new window, update capabilities as needed.
 - The frontend does not use global Tauri (`withGlobalTauri: false`); import APIs from `@tauri-apps/api`.
 - The UI currently uses `lucide-react` for icon buttons. When adding new controls, keep the style compact and make disabled/error/saved states clear.
+- Local development may use **bun** for faster installs, but **CI and `release.yml` build artifacts with npm**. Only `package-lock.json` is committed; `bun.lockb`, `pnpm-lock.yaml`, and `yarn.lock` are gitignored. When changing dependencies, refresh `package-lock.json` by running `npm install` before committing — otherwise `tauri-action`'s lockfile auto-detect can flip CI to the wrong package manager and break the release build.
