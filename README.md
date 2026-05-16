@@ -30,4 +30,11 @@ Eye Relax Timer is a tray-first desktop app that helps you rest your eyes on a r
 
 ## Development
 
+### Package manager
+
+Local development may use **bun** (`bun install`, `bun run dev`) for faster installs.
+**CI and release builds always use npm** against `package-lock.json`.
+
+Do not commit `bun.lockb`, `pnpm-lock.yaml`, or `yarn.lock` — they are gitignored. When you change dependencies, run `npm install` once so `package-lock.json` stays in sync, then commit it.
+
 [← Back to main README-DEVELOPMENT](README-DEVELOPMENT.md)
