@@ -117,7 +117,7 @@ fn save_settings(
     settings: AppSettings,
 ) -> Result<(), String> {
     validate_settings(&settings)?;
-    apply_autostart(&app, settings.autostart_enabled)?;
+    apply_autostart_for_save(&app, settings.autostart_enabled)?;
     persist_settings(&app, &settings)?;
 
     {
@@ -586,6 +586,12 @@ fn validate_settings(settings: &AppSettings) -> Result<(), String> {
 
 fn apply_autostart(app: &AppHandle, enabled: bool) -> Result<(), String> {
     let autostart = app.autolaunch();
+    if let Ok(current) = autostart.is_enabled() {
+        if !autostart_update_needed(current, enabled) {
+            return Ok(());
+        }
+    }
+
     if enabled {
         autostart.enable().map_err(error_to_string)?;
     } else if let Err(err) = autostart.disable() {
@@ -604,6 +610,21 @@ fn is_missing_autostart_entry_error(error: &impl std::fmt::Display) -> bool {
 #[cfg(not(target_os = "windows"))]
 fn is_missing_autostart_entry_error(_error: &impl std::fmt::Display) -> bool {
     false
+}
+
+fn apply_autostart_for_save(app: &AppHandle, enabled: bool) -> Result<(), String> {
+    match apply_autostart(app, enabled) {
+        Ok(()) => Ok(()),
+        Err(error) if cfg!(target_os = "windows") => {
+            eprintln!("Failed to apply Windows autostart setting: {error}");
+            Ok(())
+        }
+        Err(error) => Err(error),
+    }
+}
+
+fn autostart_update_needed(current_enabled: bool, desired_enabled: bool) -> bool {
+    current_enabled != desired_enabled
 }
 
 fn duration_seconds(settings: &AppSettings) -> u64 {
@@ -679,5 +700,13 @@ mod tests {
         assert_eq!(format_seconds(9), "00:09");
         assert_eq!(format_seconds(65), "01:05");
         assert_eq!(format_seconds(3600), "60:00");
+    }
+
+    #[test]
+    fn autostart_update_is_only_needed_when_value_changes() {
+        assert!(!autostart_update_needed(false, false));
+        assert!(!autostart_update_needed(true, true));
+        assert!(autostart_update_needed(false, true));
+        assert!(autostart_update_needed(true, false));
     }
 }
