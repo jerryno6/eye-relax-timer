@@ -14,7 +14,7 @@ Eye Relax Timer is a tray-first desktop app built with Tauri v2. Its goal is to 
 - Main state lives in Rust in `SharedState`:
   - `settings`: `durationMinutes`, `repeatEnabled`, `autostartEnabled`.
   - `timer`: `status`, `remainingSeconds`, `breakRemainingSeconds`.
-  - `generation`: cancels old async countdowns when starting, pausing, resetting, or finishing a break.
+  - `generation`: cancels old async countdowns when starting, pausing, stopping, or finishing a break.
   - `tray_menu`: handle used to update status/menu items based on the timer.
 - Settings are saved in the app config directory under `settings.json`.
 
@@ -92,7 +92,7 @@ There is currently no frontend test script in `package.json`. When verifying Typ
 - Break duration is currently hardcoded in Rust as `BREAK_SECONDS = 60`.
 - The break popup is created undecorated, always-on-top, skipped from the taskbar, and sized to 80% of the primary monitor. If changing geometry, test on multi-monitor/scale-factor setups.
 - Closing the settings window is intercepted to hide it instead of exiting the app. The app only truly exits through the tray menu `Quit`, when `allow_exit` is set.
-- Pause/resume/reset use `generation` to invalidate old countdown tasks. When adding any new async flow, respect the generation mechanism to avoid race conditions.
+- Pause/resume/stop use `generation` to invalidate old countdown tasks. When adding any new async flow, respect the generation mechanism to avoid race conditions.
 - Autostart uses `tauri-plugin-autostart` with `MacosLauncher::LaunchAgent`; consider platform behavior when modifying it.
 - The Tauri app declares `windows: []` in config and creates windows at runtime in Rust. If adding a new window, update capabilities as needed.
 - The frontend does not use global Tauri (`withGlobalTauri: false`); import APIs from `@tauri-apps/api`.
