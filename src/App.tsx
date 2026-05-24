@@ -301,9 +301,28 @@ function BreakPopup() {
       <section className="break-content" aria-label="Break timer">
         <p className="eyebrow">Rest your eyes</p>
         <h1>Look away from the screen</h1>
-        <div className="break-count">{formatSeconds(timer.breakRemainingSeconds)}</div>
+        <div className="break-count">{breakPopupCount(timer)}</div>
+        {showNextReminder(timer) ? (
+          <p className="break-followup">Next reminder in {formatSeconds(timer.remainingSeconds)}</p>
+        ) : null}
       </section>
     </main>
+  );
+}
+
+function breakPopupCount(timer: TimerSnapshot) {
+  if (timer.status === "breakVisible") {
+    return formatSeconds(timer.breakRemainingSeconds);
+  }
+
+  return "00:00";
+}
+
+function showNextReminder(timer: TimerSnapshot) {
+  return (
+    (timer.status === "running" || timer.status === "paused") &&
+    timer.breakRemainingSeconds === 0 &&
+    timer.remainingSeconds > 0
   );
 }
 

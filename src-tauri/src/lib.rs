@@ -139,7 +139,7 @@ fn get_timer_state(state: State<'_, Arc<SharedState>>) -> Result<TimerSnapshot, 
 
 #[tauri::command]
 fn start_timer(app: AppHandle, state: State<'_, Arc<SharedState>>) -> Result<(), String> {
-    start_timer_inner(&app, state.inner().clone(), None)
+    start_timer_inner(&app, state.inner().clone(), None, false)
 }
 
 #[tauri::command]
@@ -154,7 +154,7 @@ fn stop_timer(app: AppHandle, state: State<'_, Arc<SharedState>>) -> Result<(), 
 
 #[tauri::command]
 fn close_break_popup(app: AppHandle, state: State<'_, Arc<SharedState>>) -> Result<(), String> {
-    finish_break(&app, state.inner().clone())
+    close_break_popup_inner(&app, state.inner().clone())
 }
 
 #[derive(serde::Serialize)]
@@ -307,7 +307,7 @@ fn create_tray(app: &AppHandle, state: Arc<SharedState>) -> tauri::Result<()> {
             let state = menu_state.clone();
             match event.id().as_ref() {
                 "start" => {
-                    let _ = start_timer_inner(&app_handle, state, None);
+                    let _ = start_timer_inner(&app_handle, state, None, false);
                 }
                 "pause" => {
                     let _ = toggle_pause_timer(&app_handle, state);
@@ -370,7 +370,7 @@ fn open_settings_window(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn show_break_window(app: &AppHandle) -> Result<(), String> {
+fn show_break_window(app: &AppHandle, state: Arc<SharedState>) -> Result<(), String> {
     let (size, position) = break_window_geometry(app)?;
 
     if let Some(window) = app.get_webview_window("break") {
@@ -382,17 +382,30 @@ fn show_break_window(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
-    WebviewWindowBuilder::new(app, "break", WebviewUrl::App("index.html?window=break".into()))
-        .title("Eye Break")
-        .inner_size(size.width, size.height)
-        .position(position.x, position.y)
-        .resizable(false)
-        .decorations(false)
-        .always_on_top(true)
-        .focused(true)
-        .skip_taskbar(true)
-        .build()
-        .map_err(error_to_string)?;
+    let window = WebviewWindowBuilder::new(
+        app,
+        "break",
+        WebviewUrl::App("index.html?window=break".into()),
+    )
+    .title("Eye Break")
+    .inner_size(size.width, size.height)
+    .position(position.x, position.y)
+    .resizable(false)
+    .decorations(false)
+    .always_on_top(true)
+    .focused(true)
+    .skip_taskbar(true)
+    .build()
+    .map_err(error_to_string)?;
+
+    let app_handle = app.clone();
+    let close_state = state.clone();
+    window.on_window_event(move |event| {
+        if let WindowEvent::CloseRequested { api, .. } = event {
+            api.prevent_close();
+            let _ = close_break_popup_inner(&app_handle, close_state.clone());
+        }
+    });
 
     Ok(())
 }
@@ -422,9 +435,10 @@ fn start_timer_inner(
     app: &AppHandle,
     state: Arc<SharedState>,
     override_remaining: Option<u64>,
+    keep_break_popup_open: bool,
 ) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("break") {
-        let _ = window.close();
+    if !keep_break_popup_open {
+        close_break_window(app);
     }
 
     let settings = state.settings.lock().map_err(lock_error)?.clone();
@@ -448,6 +462,22 @@ fn start_timer_inner(
     });
 
     Ok(())
+}
+
+fn close_break_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("break") {
+        let _ = window.destroy();
+    }
+}
+
+fn close_break_popup_inner(app: &AppHandle, state: Arc<SharedState>) -> Result<(), String> {
+    let status = state.timer.lock().map_err(lock_error)?.status;
+    if status == TimerStatus::BreakVisible {
+        finish_break(app, state)
+    } else {
+        close_break_window(app);
+        Ok(())
+    }
 }
 
 async fn run_countdown(
@@ -474,7 +504,7 @@ async fn run_countdown(
         return;
     }
 
-    if show_break_window(&app).is_err() {
+    if show_break_window(&app, state.clone()).is_err() {
         let _ = stop_timer_inner(&app, state);
         return;
     }
@@ -506,7 +536,7 @@ async fn run_break_countdown(app: AppHandle, state: Arc<SharedState>, generation
     }
 
     if state.is_current_generation(generation) {
-        let _ = finish_break(&app, state);
+        let _ = complete_break_countdown(&app, state);
     }
 }
 
@@ -522,16 +552,16 @@ fn toggle_pause_timer(app: &AppHandle, state: Arc<SharedState>) -> Result<(), St
             }
             emit_timer_state(app, &state)
         }
-        TimerStatus::Paused => start_timer_inner(app, state, Some(snapshot.remaining_seconds)),
+        TimerStatus::Paused => {
+            start_timer_inner(app, state, Some(snapshot.remaining_seconds), false)
+        }
         _ => Ok(()),
     }
 }
 
 fn stop_timer_inner(app: &AppHandle, state: Arc<SharedState>) -> Result<(), String> {
     state.next_generation();
-    if let Some(window) = app.get_webview_window("break") {
-        let _ = window.close();
-    }
+    close_break_window(app);
     let settings = state.settings.lock().map_err(lock_error)?.clone();
     {
         *state.timer.lock().map_err(lock_error)? = TimerSnapshot::stopped(&settings);
@@ -541,13 +571,23 @@ fn stop_timer_inner(app: &AppHandle, state: Arc<SharedState>) -> Result<(), Stri
 
 fn finish_break(app: &AppHandle, state: Arc<SharedState>) -> Result<(), String> {
     state.next_generation();
-    if let Some(window) = app.get_webview_window("break") {
-        let _ = window.close();
-    }
+    close_break_window(app);
 
     let settings = state.settings.lock().map_err(lock_error)?.clone();
     if settings.repeat_enabled {
-        start_timer_inner(app, state, Some(duration_seconds(&settings)))
+        start_timer_inner(app, state, Some(duration_seconds(&settings)), false)
+    } else {
+        {
+            *state.timer.lock().map_err(lock_error)? = TimerSnapshot::stopped(&settings);
+        }
+        emit_timer_state(app, &state)
+    }
+}
+
+fn complete_break_countdown(app: &AppHandle, state: Arc<SharedState>) -> Result<(), String> {
+    let settings = state.settings.lock().map_err(lock_error)?.clone();
+    if settings.repeat_enabled {
+        start_timer_inner(app, state, Some(duration_seconds(&settings)), true)
     } else {
         {
             *state.timer.lock().map_err(lock_error)? = TimerSnapshot::stopped(&settings);
@@ -570,18 +610,25 @@ fn update_tray_menu(state: &Arc<SharedState>) -> Result<(), String> {
     };
 
     let status = match snapshot.status {
-        TimerStatus::Stopped => format!("Status: Ready ({})", format_seconds(snapshot.remaining_seconds)),
+        TimerStatus::Stopped => format!(
+            "Status: Ready ({})",
+            format_seconds(snapshot.remaining_seconds)
+        ),
         TimerStatus::Running => format!("Status: {}", format_seconds(snapshot.remaining_seconds)),
-        TimerStatus::Paused => format!("Status: Paused ({})", format_seconds(snapshot.remaining_seconds)),
+        TimerStatus::Paused => format!(
+            "Status: Paused ({})",
+            format_seconds(snapshot.remaining_seconds)
+        ),
         TimerStatus::BreakVisible => {
-            format!("Status: Break ({})", format_seconds(snapshot.break_remaining_seconds))
+            format!(
+                "Status: Break ({})",
+                format_seconds(snapshot.break_remaining_seconds)
+            )
         }
     };
 
     menu.status.set_text(status).map_err(error_to_string)?;
-    menu.start
-        .set_enabled(true)
-        .map_err(error_to_string)?;
+    menu.start.set_enabled(true).map_err(error_to_string)?;
     menu.pause
         .set_text(if snapshot.status == TimerStatus::Paused {
             "Resume"
@@ -619,10 +666,7 @@ fn persist_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), Strin
 }
 
 fn settings_path(app: &AppHandle) -> Result<PathBuf, String> {
-    let mut path = app
-        .path()
-        .app_config_dir()
-        .map_err(error_to_string)?;
+    let mut path = app.path().app_config_dir().map_err(error_to_string)?;
     path.push("settings.json");
     Ok(path)
 }
