@@ -15,8 +15,8 @@ Eye Relax Timer is a tray-first desktop app that helps you rest your eyes on a r
 - Tray/status bar app designed to stay out of the way.
 - Configurable timer presets: 5, 10, 15, 20, 30, 45, and 60 minutes.
 - Custom timer duration from 1 to 240 minutes.
-- Start, pause/resume, and reset controls from the settings window.
-- Tray menu with status, start, pause/resume, reset, settings, and quit actions.
+- Start, pause/resume, and stop controls from the settings window.
+- Tray menu with status, start, pause/resume, stop, settings, and quit actions.
 - Eye-rest popup that covers about 80% of the primary screen.
 - 60-second break countdown.
 - Optional repeat mode to automatically start the next timer after a break.
